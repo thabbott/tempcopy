@@ -24,10 +24,17 @@ def _check_cache(src, dest):
     return CacheStatus.VALID
 
 # Generate destination filename from src
+# should deprecate in favor of user-facing `temppath`
 def _gen_dest(src):
     dest = os.path.join(config['tempcopy_dir'], 
         os.path.splitdrive(os.path.abspath(src))[1].strip(os.path.sep))
     return dest
+
+def temp_path(src):
+    """
+    Return the path used for temporary copies of `src`
+    """
+    return _gen_dest(src)
 
 # Generate lockfile filename from dest
 def _gen_lockfile(dest):
@@ -406,6 +413,10 @@ def persist(write_function, dest, overwrite=True, copy_with='shutil'):
 
     # get location on fast scratch
     source = _gen_dest(dest)
+
+    # make sure write directory exists 
+    head, tail = os.path.split(source)
+    os.makedirs(head, exist_ok=True)
 
     # check for existing files 
     if os.path.exists(dest) and not overwrite:
