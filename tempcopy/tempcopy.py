@@ -381,7 +381,47 @@ def collect(copies):
     copies: output from `copy_all`
     """
     return [copy.path() for copy in copies]
+ 
+def persist(write_function, dest, overwrite=True, copy_with='shutil'):
+    """
+    Create a new temporary file and a persistent copy at `src`.
+
+    Parameters
+    ----------
+    write_function: str -> None 
+        Function used to write the temporary file. It must take 
+        a path as an argument and produce a file at that path.
+
+    dest: str 
+        Path to the persistent copy of the temporary file.
     
+    overwrite: bool, optional 
+        If True, overwrite existing files with the new temporary file 
+        and persistent copy. If False, return without creating either 
+        file if either exists already
+
+    copy_with: str or function, optional 
+        See documentation for `TempCopy`
+    """
+
+    # get location on fast scratch
+    source = _gen_dest(dest)
+
+    # check for existing files 
+    if os.path.exists(dest) and not overwrite:
+        raise ValueError(f'File already exists at persistent path {dest}')
+    if os.path.exists(source) and not overwrite:
+        raise ValueError(f'File already exists at temporary path {source}')
+
+    # write temporary file 
+    write_function(source)
+
+    # copy temporary file to persistent storage
+    # overwrite argument shouldn't alter behavior because of previous checks
+    # no locking, so lock_on_copy is False and just pass /dev/null as lock file 
+    _copy(source, dest, copy_with, overwrite, False, '/dev/null')
+    
+
 if __name__ == '__main__':
         
     f = TempCopy('/work/Tristan.Abbott/22loc/data/dyamond/regions.nc',
@@ -401,3 +441,10 @@ if __name__ == '__main__':
     print(f.status)
     print(f2.status)
     print(f3.status)
+
+    def my_write(path):
+        f = open(path, 'w')
+        f.write('tempcopy persist test')
+        f.close()
+
+    persist(my_write, '/work/Tristan.Abbott/test.txt', copy_with='gcp')
